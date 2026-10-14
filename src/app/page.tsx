@@ -23,6 +23,7 @@ import { CreateDesignTemplateModal } from "@/components/CreateDesignTemplateModa
 import { CustomerDetailModal } from "@/components/CustomerDetailModal";
 import { FinanceView } from "@/components/FinanceView";
 import { CreatePaymentModal } from "@/components/CreatePaymentModal";
+import { FundAccountModal } from "@/components/FundAccountModal";
 import {
   INITIAL_ORDERS,
   INITIAL_LEADS,
@@ -33,8 +34,9 @@ import {
   INITIAL_DESIGN_TEMPLATES,
   INITIAL_PAYMENTS,
   INITIAL_STOCK_VOUCHERS,
+  INITIAL_FUND_ACCOUNTS,
 } from "@/data/mockData";
-import { SalesOrder, Lead, Customer, Quotation, InventoryItem, PricingCategoryItem, DesignTemplate, PaymentVoucher, StockVoucher } from "@/types";
+import { SalesOrder, Lead, Customer, Quotation, InventoryItem, PricingCategoryItem, DesignTemplate, PaymentVoucher, StockVoucher, FundAccount } from "@/types";
 import {
   FileText,
   DollarSign,
@@ -85,7 +87,7 @@ function HomeContent() {
       setCurrentTab(t);
     }
     const f = searchParams.get("fin");
-    if (f && ["cashbook", "receipts", "payments"].includes(f)) {
+    if (f && ["cashbook", "receipts", "payments", "accounts"].includes(f)) {
       setFinanceSub(f);
     }
     const iv = searchParams.get("inv");
@@ -118,6 +120,8 @@ function HomeContent() {
   const [designTemplates, setDesignTemplates] = useState<DesignTemplate[]>(INITIAL_DESIGN_TEMPLATES);
   const [payments, setPayments] = useState<PaymentVoucher[]>(INITIAL_PAYMENTS);
   const [stockVouchers, setStockVouchers] = useState<StockVoucher[]>(INITIAL_STOCK_VOUCHERS);
+  const [fundAccounts, setFundAccounts] = useState<FundAccount[]>(INITIAL_FUND_ACCOUNTS);
+  const [editingAccount, setEditingAccount] = useState<FundAccount | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<SalesOrder | null>(null);
 
   // Modals state
@@ -130,6 +134,7 @@ function HomeContent() {
   const [isCreateCustomerOpen, setIsCreateCustomerOpen] = useState(false);
   const [isCreateDesignOpen, setIsCreateDesignOpen] = useState(false);
   const [isCreatePaymentOpen, setIsCreatePaymentOpen] = useState(false);
+  const [isFundAccountOpen, setIsFundAccountOpen] = useState(false);
 
   // Chọn đơn hàng để xem chi tiết & tương tác quy trình
   const handleSelectOrder = (order: SalesOrder) => {
@@ -233,7 +238,29 @@ function HomeContent() {
     );
   };
 
-  const OPENING_BALANCE = 50000000;
+  // CRUD Tài khoản quỹ
+  const handleCreateAccount = (a: FundAccount) => {
+    setFundAccounts((prev) => [a, ...prev]);
+  };
+  const handleOpenEditAccount = (a: FundAccount) => {
+    setEditingAccount(a);
+    setIsFundAccountOpen(true);
+  };
+  const handleCloseAccountModal = () => {
+    setIsFundAccountOpen(false);
+    setEditingAccount(null);
+  };
+  const handleUpdateAccount = (updated: FundAccount) => {
+    setFundAccounts((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+    setEditingAccount(null);
+  };
+  const handleDeleteAccount = (id: string) => {
+    setFundAccounts((prev) => prev.filter((a) => a.id !== id));
+    if (editingAccount?.id === id) setEditingAccount(null);
+  };
+
+  // Sổ quỹ đầu kỳ = tổng số dư đầu kỳ các tài khoản
+  const OPENING_BALANCE = fundAccounts.reduce((s, a) => s + (a.openingBalance || 0), 0);
 
   // Xóa Mẫu thiết kế
   const handleDeleteDesign = (id: string) => {
@@ -542,16 +569,23 @@ function HomeContent() {
             </div>
           )}
 
-          {/* TAB: TÀI CHÍNH — SỔ QUỸ / PHIẾU THU / PHIẾU CHI (Nhánh A) */}
+          {/* TAB: TÀI CHÍNH — SỔ QUỸ / PHIẾU THU / PHIẾU CHI / TÀI KHOẢN (Nhánh A) */}
           {currentTab === "receipts" && (
             <FinanceView
               orders={orders}
               payments={payments}
+              accounts={fundAccounts}
               openingBalance={OPENING_BALANCE}
-              subTab={financeSub as "cashbook" | "receipts" | "payments"}
+              subTab={financeSub as "cashbook" | "receipts" | "payments" | "accounts"}
               onSubTabChange={(sub) => handleSelectTab("receipts", sub)}
               onOpenCreatePayment={() => setIsCreatePaymentOpen(true)}
               onDeletePayment={handleDeletePayment}
+              onOpenCreateAccount={() => {
+                setEditingAccount(null);
+                setIsFundAccountOpen(true);
+              }}
+              onEditAccount={handleOpenEditAccount}
+              onDeleteAccount={handleDeleteAccount}
               onGoToOrders={() => handleSelectTab("orders-flow")}
             />
           )}
@@ -744,6 +778,16 @@ function HomeContent() {
         isOpen={isCreatePaymentOpen}
         onClose={() => setIsCreatePaymentOpen(false)}
         onCreate={handleCreatePayment}
+        accounts={fundAccounts}
+      />
+
+      {/* 10. Modal Thêm / Sửa Tài khoản quỹ */}
+      <FundAccountModal
+        isOpen={isFundAccountOpen}
+        onClose={handleCloseAccountModal}
+        onCreate={handleCreateAccount}
+        editingAccount={editingAccount}
+        onUpdate={handleUpdateAccount}
       />
     </div>
   );
